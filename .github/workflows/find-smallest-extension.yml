@@ -1,4 +1,4 @@
-name: Find Smallest Chrome Extension ID
+name: Find Smallest 1000 Chrome Extension IDs
 
 on:
   workflow_dispatch:
@@ -14,14 +14,13 @@ jobs:
             https://github.com/ishandutta2007/chrome-extension-manifests-dataset.git \
             dataset
 
-      - name: Find smallest extension ID
+      - name: Find smallest 1000 extension IDs
         working-directory: dataset
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
           root = Path(".")
-
           ids = set()
 
           for snapshot in root.glob("manifests-*"):
@@ -34,7 +33,6 @@ jobs:
 
                   id = f.stem
 
-                  # Chrome extension ID: 32 chars, each a-p
                   if len(id) == 32 and all('a' <= c <= 'p' for c in id):
                       ids.add(id)
 
@@ -43,13 +41,16 @@ jobs:
           if not ids:
               raise SystemExit("No extension IDs found")
 
-          smallest = min(ids)
+          sorted_ids = sorted(ids)
+          top1000 = sorted_ids[:1000]
 
-          print("Smallest extension ID:")
-          print(smallest)
+          print()
+          print("Smallest 1000 extension IDs:")
+          for i, id in enumerate(top1000, 1):
+              print(f"{i:4d}. {id}")
 
           Path("../result.txt").write_text(
-              f"{smallest}\n",
+              "\n".join(top1000) + "\n",
               encoding="utf-8"
           )
           PY
@@ -62,7 +63,7 @@ jobs:
       - name: Write summary
         run: |
           {
-            echo "# Smallest Chrome Extension ID"
+            echo "# Smallest 1000 Chrome Extension IDs"
             echo
             echo '```text'
             cat result.txt
@@ -72,5 +73,5 @@ jobs:
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: smallest-extension-id
+          name: smallest-1000-extension-ids
           path: result.txt
