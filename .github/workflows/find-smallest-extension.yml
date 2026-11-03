@@ -32,7 +32,7 @@ jobs:
                   if not f.is_file():
                       continue
 
-                  id = f.name
+                  id = f.stem
 
                   # Chrome extension ID: 32 chars, each a-p
                   if len(id) == 32 and all('a' <= c <= 'p' for c in id):
