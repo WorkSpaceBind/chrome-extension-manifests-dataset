@@ -349,8 +349,8 @@ jobs:
           # ============================================================
 
           output = "\n".join(
-              f"{extension_id}\t{key}"
-              for extension_id, key in results
+              f"{index}\t{extension_id}\t{key}"
+              for index, (extension_id, key) in enumerate(results, 1)
           ) + "\n"
 
           Path("result.txt").write_text(
