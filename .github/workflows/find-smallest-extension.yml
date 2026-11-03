@@ -14,102 +14,50 @@ jobs:
             https://github.com/ishandutta2007/chrome-extension-manifests-dataset.git \
             dataset
 
-      - name: Inspect dataset
+      - name: Find smallest extension ID
         working-directory: dataset
         run: |
-          echo "===== ROOT ====="
-          ls -la
+          python3 - <<'PY'
+          from pathlib import Path
 
-          echo
-          echo "===== DIRECTORIES ====="
-          find . -maxdepth 2 -type d | head -50
+          root = Path(".")
 
-      - name: Find smallest ID with key
-        shell: python
-        run: |
-          import json
-          import pathlib
+          ids = set()
 
-          root = pathlib.Path("dataset")
-
-          candidates = {}
-
-          for snapshot in sorted(root.glob("manifests-*")):
+          for snapshot in root.glob("manifests-*"):
               if not snapshot.is_dir():
                   continue
 
-              print("Scanning:", snapshot.name)
-
-              for path in snapshot.iterdir():
-                  if not path.is_file():
+              for f in snapshot.iterdir():
+                  if not f.is_file():
                       continue
 
-                  extension_id = path.name
+                  id = f.name
 
-                  # Chrome extension ID 必须是 32 个 a-p 字符
-                  if len(extension_id) != 32:
-                      continue
+                  # Chrome extension ID: 32 chars, each a-p
+                  if len(id) == 32 and all('a' <= c <= 'p' for c in id):
+                      ids.add(id)
 
-                  if not all("a" <= c <= "p" for c in extension_id):
-                      continue
+          print("Total unique extension IDs:", len(ids))
 
-                  try:
-                      data = json.loads(
-                          path.read_text(
-                              encoding="utf-8",
-                              errors="replace"
-                          )
-                      )
-                  except Exception:
-                      continue
+          if not ids:
+              raise SystemExit("No extension IDs found")
 
-                  key = data.get("key")
+          smallest = min(ids)
 
-                  if not isinstance(key, str) or not key:
-                      continue
+          print("Smallest extension ID:")
+          print(smallest)
 
-                  # 同一个 ID 只保留第一次发现的记录
-                  if extension_id not in candidates:
-                      candidates[extension_id] = {
-                          "id": extension_id,
-                          "name": data.get("name"),
-                          "key": key,
-                          "snapshot": snapshot.name,
-                          "path": str(path),
-                      }
+          Path("../result.txt").write_text(
+              f"{smallest}\n",
+              encoding="utf-8"
+          )
+          PY
 
-          print()
-          print("Unique extension IDs with key:", len(candidates))
-
-          if not candidates:
-              raise SystemExit("No extension with key found")
-
-          # ASCII 字典序
-          best_id = min(candidates)
-
-          best = candidates[best_id]
-
-          print()
-          print("=" * 80)
-          print("SMALLEST EXTENSION ID")
-          print("=" * 80)
-          print("ID:       ", best["id"])
-          print("NAME:     ", best["name"])
-          print("KEY:      ", best["key"])
-          print("SNAPSHOT: ", best["snapshot"])
-          print("MANIFEST: ", best["path"])
-          print("=" * 80)
-
-          with open("dataset/result.txt", "w", encoding="utf-8") as f:
-              f.write("ID=" + best["id"] + "\n")
-              f.write("NAME=" + str(best["name"]) + "\n")
-              f.write("KEY=" + best["key"] + "\n")
-              f.write("SNAPSHOT=" + best["snapshot"] + "\n")
-              f.write("MANIFEST=" + best["path"] + "\n")
       - name: Show result
         run: |
           echo "===== RESULT ====="
-          cat dataset/result.txt
+          cat result.txt
 
       - name: Write summary
         run: |
@@ -117,7 +65,7 @@ jobs:
             echo "# Smallest Chrome Extension ID"
             echo
             echo '```text'
-            cat dataset/result.txt
+            cat result.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -125,4 +73,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: smallest-extension-id
-          path: dataset/result.txt
+          path: result.txt
