@@ -1,0 +1,72 @@
+name: Find Smallest 1000 Chrome Extension IDs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Find smallest 1000 extension IDs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path(".")
+          ids = set()
+
+          for snapshot in root.glob("manifests-*"):
+              if not snapshot.is_dir():
+                  continue
+
+              for f in snapshot.iterdir():
+                  if not f.is_file():
+                      continue
+
+                  id = f.stem
+
+                  if len(id) == 32 and all('a' <= c <= 'p' for c in id):
+                      ids.add(id)
+
+          print("Total unique extension IDs:", len(ids))
+
+          if not ids:
+              raise SystemExit("No extension IDs found")
+
+          top1000 = sorted(ids)[:1000]
+
+          print()
+          print("Smallest 1000 extension IDs:")
+          for i, id in enumerate(top1000, 1):
+              print(f"{i:4d}. {id}")
+
+          Path("result.txt").write_text(
+              "\n".join(top1000) + "\n",
+              encoding="utf-8"
+          )
+          PY
+
+      - name: Show result
+        run: |
+          echo "===== RESULT ====="
+          cat result.txt
+
+      - name: Write summary
+        run: |
+          {
+            echo "# Smallest 1000 Chrome Extension IDs"
+            echo
+            echo '```text'
+            cat result.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: smallest-1000-extension-ids
+          path: result.txt
