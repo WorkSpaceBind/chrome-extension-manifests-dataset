@@ -32,82 +32,80 @@ jobs:
 
           root = pathlib.Path("dataset")
 
-          candidates = []
+          candidates = {}
 
-          for path in root.rglob("manifest.json"):
-              try:
-                  data = json.loads(
-                      path.read_text(encoding="utf-8")
-                  )
-              except Exception:
+          for snapshot in sorted(root.glob("manifests-*")):
+              if not snapshot.is_dir():
                   continue
 
-              key = data.get("key")
+              print("Scanning:", snapshot.name)
 
-              if not isinstance(key, str) or not key:
-                  continue
+              for path in snapshot.iterdir():
+                  if not path.is_file():
+                      continue
 
-              # 从路径中寻找 Chrome Extension ID
-              parts = path.parts
+                  extension_id = path.name
 
-              for part in reversed(parts):
-                  if (
-                      len(part) == 32
-                      and all("a" <= c <= "p" for c in part)
-                  ):
-                      extension_id = part
-                      break
-              else:
-                  continue
+                  # Chrome extension ID 必须是 32 个 a-p 字符
+                  if len(extension_id) != 32:
+                      continue
 
-              candidates.append({
-                  "id": extension_id,
-                  "name": data.get("name"),
-                  "key": key,
-                  "path": str(path),
-              })
+                  if not all("a" <= c <= "p" for c in extension_id):
+                      continue
 
-          # 按 Extension ID 的 ASCII 字典序排序
-          candidates.sort(key=lambda x: x["id"])
+                  try:
+                      data = json.loads(
+                          path.read_text(
+                              encoding="utf-8",
+                              errors="replace"
+                          )
+                      )
+                  except Exception:
+                      continue
 
-          print("Total manifests with key:", len(candidates))
+                  key = data.get("key")
+
+                  if not isinstance(key, str) or not key:
+                      continue
+
+                  # 同一个 ID 只保留第一次发现的记录
+                  if extension_id not in candidates:
+                      candidates[extension_id] = {
+                          "id": extension_id,
+                          "name": data.get("name"),
+                          "key": key,
+                          "snapshot": snapshot.name,
+                          "path": str(path),
+                      }
+
           print()
+          print("Unique extension IDs with key:", len(candidates))
 
           if not candidates:
-              raise SystemExit("No manifest with key found")
+              raise SystemExit("No extension with key found")
 
-          # 去重后再排序
-          unique = {}
+          # ASCII 字典序
+          best_id = min(candidates)
 
-          for item in candidates:
-              if item["id"] not in unique:
-                  unique[item["id"]] = item
+          best = candidates[best_id]
 
-          candidates = sorted(
-              unique.values(),
-              key=lambda x: x["id"]
-          )
-
-          print("Unique extension IDs with key:", len(candidates))
           print()
-
-          best = candidates[0]
-
           print("=" * 80)
           print("SMALLEST EXTENSION ID")
           print("=" * 80)
           print("ID:       ", best["id"])
           print("NAME:     ", best["name"])
           print("KEY:      ", best["key"])
+          print("SNAPSHOT: ", best["snapshot"])
           print("MANIFEST: ", best["path"])
           print("=" * 80)
 
-          with open("result.txt", "w", encoding="utf-8") as f:
+          with open("dataset/result.txt", "w", encoding="utf-8") as f:
               f.write("ID=" + best["id"] + "\n")
               f.write("NAME=" + str(best["name"]) + "\n")
               f.write("KEY=" + best["key"] + "\n")
+              f.write("SNAPSHOT=" + best["snapshot"] + "\n")
               f.write("MANIFEST=" + best["path"] + "\n")
-
       - name: Show result
         run: |
           echo "===== RESULT ====="
