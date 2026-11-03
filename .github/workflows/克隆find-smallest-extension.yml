@@ -1,4 +1,4 @@
-name: Find Smallest 1000 Chrome Extension IDs
+name: Clone_ Find Smallest 1000 Chrome Extension IDs
 
 on:
   workflow_dispatch:
